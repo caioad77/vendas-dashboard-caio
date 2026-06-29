@@ -249,29 +249,63 @@ const PDV = ({ products, events, addSale }: any) => {
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [applyDiscount, setApplyDiscount] = useState(false);
 
-  const cartItems = useMemo(() => Object.entries(cart).map(([id, qty]) => {
+  const cartItems = useMemo(() => Object.entries(cart).map(([cartKey, qty]) => {
+      const [id, frame] = cartKey.split(':');
+      const hasFrame = frame === 'frame';
       const p = products.find((prod: any) => prod.id === id);
-      return p ? { ...p, qty } : null;
+      if (!p) return null;
+      return { 
+        ...p, 
+        cartKey,
+        qty,
+        hasFrame,
+        price: hasFrame ? p.price + 5 : p.price,
+        name: hasFrame ? `${p.name} (+ Moldura)` : p.name
+      };
   }).filter(Boolean), [cart, products]);
 
-  const rawTotal = isGatcha ? 5 : cartItems.reduce((acc, item) => acc + item.price * (item.qty as number), 0);
+  const rawTotal = isGatcha 
+    ? cartItems.reduce((acc: number, item: any) => acc + (5 + (item.hasFrame ? 5 : 0)) * (item.qty as number), 0)
+    : cartItems.reduce((acc: number, item: any) => acc + item.price * (item.qty as number), 0);
   const total = applyDiscount ? rawTotal * 0.8 : rawTotal;
 
-  const updateQty = (id: string, delta: number) => {
+  const updateQty = (id: string, delta: number, hasFrame: boolean = false) => {
     const p = products.find((prod: any) => prod.id === id);
     if (!p) return;
     
+    const cartKey = hasFrame ? `${id}:frame` : id;
+    
     setCart((prev: any) => {
-      const currentQty = prev[id] || 0;
+      const currentQty = prev[cartKey] || 0;
       const newQty = currentQty + delta;
       
-      if (newQty > (p.stock || 0)) {
+      const otherKey = hasFrame ? id : `${id}:frame`;
+      const otherQty = prev[otherKey] || 0;
+      const totalQtyOfProduct = newQty + otherQty;
+      
+      if (totalQtyOfProduct > (p.stock || 0)) {
         addToast(`Estoque insuficiente! (${p.stock || 0} disponíveis)`, 'error');
         return prev;
       }
       
-      if (newQty <= 0) { const next = { ...prev }; delete next[id]; return next; }
-      return { ...prev, [id]: newQty };
+      if (newQty <= 0) { const next = { ...prev }; delete next[cartKey]; return next; }
+      return { ...prev, [cartKey]: newQty };
+    });
+  };
+
+  const toggleFrame = (cartKey: string) => {
+    const [id, frame] = cartKey.split(':');
+    const hasFrame = frame === 'frame';
+    const qty = cart[cartKey];
+    if (!qty) return;
+    
+    const newKey = hasFrame ? id : `${id}:frame`;
+    
+    setCart((prev: any) => {
+      const next = { ...prev };
+      delete next[cartKey];
+      next[newKey] = (next[newKey] || 0) + qty;
+      return next;
     });
   };
 
@@ -364,15 +398,43 @@ const PDV = ({ products, events, addSale }: any) => {
             <div className="bg-surface-container-highest/95 backdrop-blur-2xl border-2 border-primary/30 p-4 sm:p-6 rounded-[2rem] shadow-[0_20px_80px_rgba(0,0,0,0.8)] flex flex-col gap-4">
               <div className="max-h-[120px] overflow-y-auto px-2 space-y-2 thin-scrollbar">
                 {cartItems.map((item: any) => (
-                  <div key={item.id} className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
+                  <div key={item.cartKey} className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
                     <div className="flex items-center gap-3">
                       <span className="text-xl">{item.emoji}</span>
-                      <span className="font-body text-xs font-bold text-primary">{item.name}</span>
+                      <div className="flex flex-col items-start">
+                        <span className="font-body text-xs font-bold text-primary">{item.name}</span>
+                        {!isGatcha && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); toggleFrame(item.cartKey); }} 
+                            className={cn(
+                              "text-[8px] font-label uppercase tracking-wider px-2 py-0.5 rounded mt-1 border w-max transition-all",
+                              item.hasFrame 
+                                ? "bg-primary/20 text-primary border-primary/30" 
+                                : "bg-transparent text-on-surface-variant/60 border-outline-variant/20 hover:text-primary hover:border-primary/30"
+                            )}
+                          >
+                            {item.hasFrame ? 'Com Moldura' : '+ Moldura (+ R$ 5)'}
+                          </button>
+                        )}
+                        {isGatcha && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); toggleFrame(item.cartKey); }} 
+                            className={cn(
+                              "text-[8px] font-label uppercase tracking-wider px-2 py-0.5 rounded mt-1 border w-max transition-all",
+                              item.hasFrame 
+                                ? "bg-tertiary/20 text-tertiary border-tertiary/30" 
+                                : "bg-transparent text-on-surface-variant/60 border-outline-variant/20 hover:text-tertiary hover:border-tertiary/30"
+                            )}
+                          >
+                            {item.hasFrame ? 'Gatcha com Moldura' : '+ Moldura (+ R$ 5)'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <button onClick={(e) => { e.stopPropagation(); updateQty(item.id, -1); }} className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center text-primary border border-outline-variant/10 hover:bg-error/20 transition-colors"><Minus size={14}/></button>
+                      <button onClick={(e) => { e.stopPropagation(); updateQty(item.id, -1, item.hasFrame); }} className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center text-primary border border-outline-variant/10 hover:bg-error/20 transition-colors"><Minus size={14}/></button>
                       <span className="font-label font-black text-sm text-primary w-4 text-center">{item.qty}</span>
-                      <button onClick={(e) => { e.stopPropagation(); updateQty(item.id, 1); }} className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center text-primary border border-outline-variant/10 hover:bg-primary/20 transition-colors"><Plus size={14}/></button>
+                      <button onClick={(e) => { e.stopPropagation(); updateQty(item.id, 1, item.hasFrame); }} className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center text-primary border border-outline-variant/10 hover:bg-primary/20 transition-colors"><Plus size={14}/></button>
                     </div>
                   </div>
                 ))}
