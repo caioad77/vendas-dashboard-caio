@@ -119,13 +119,20 @@ export const useStore = () => {
   };
 
   // Sales
-  const addSale = async (items, note = '', isGatcha = false, eventId = null) => {
-    const total = isGatcha ? 5 : items.reduce((s, i) => s + i.price * i.qty, 0);
+  const addSale = async (items, note = '', isGatcha = false, eventId = null, discount = 0) => {
+    const rawTotal = isGatcha ? 5 : items.reduce((s, i) => s + i.price * i.qty, 0);
+    const total = rawTotal * (1 - discount);
     const cost = items.reduce((s, i) => {
       const p = products.find(prod => prod.id === i.productId);
       return s + (p ? p.cost || 0 : 0) * i.qty;
     }, 0);
     const profit = total - cost;
+
+    let finalNote = note;
+    if (discount > 0) {
+      const percentStr = `${discount * 100}%`;
+      finalNote = note ? `${note} (Desconto de ${percentStr})` : `Desconto de ${percentStr}`;
+    }
 
     const sale = {
       id: crypto.randomUUID(),
@@ -133,7 +140,7 @@ export const useStore = () => {
       items,
       total,
       profit,
-      note,
+      note: finalNote,
       isGatcha,
       event_id: eventId
     };

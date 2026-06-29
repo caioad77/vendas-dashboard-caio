@@ -247,13 +247,15 @@ const PDV = ({ products, events, addSale }: any) => {
   const [note, setNote] = useState('');
   const [isGatcha, setIsGatcha] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [applyDiscount, setApplyDiscount] = useState(false);
 
   const cartItems = useMemo(() => Object.entries(cart).map(([id, qty]) => {
       const p = products.find((prod: any) => prod.id === id);
       return p ? { ...p, qty } : null;
   }).filter(Boolean), [cart, products]);
 
-  const total = isGatcha ? 5 : cartItems.reduce((acc, item) => acc + item.price * (item.qty as number), 0);
+  const rawTotal = isGatcha ? 5 : cartItems.reduce((acc, item) => acc + item.price * (item.qty as number), 0);
+  const total = applyDiscount ? rawTotal * 0.8 : rawTotal;
 
   const updateQty = (id: string, delta: number) => {
     const p = products.find((prod: any) => prod.id === id);
@@ -278,8 +280,8 @@ const PDV = ({ products, events, addSale }: any) => {
     const items = cartItems.map(i => ({ productId: i.id, name: i.name, qty: i.qty, price: i.price }));
     
     try {
-      await addSale(items, note, isGatcha, selectedEventId || null);
-      setCart({}); setNote('');
+      await addSale(items, note, isGatcha, selectedEventId || null, applyDiscount ? 0.20 : 0);
+      setCart({}); setNote(''); setApplyDiscount(false);
       addToast('Venda registrada! 🚀', 'success');
     } catch { addToast('Erro ao processar venda.', 'error'); }
   };
@@ -374,6 +376,19 @@ const PDV = ({ products, events, addSale }: any) => {
                     </div>
                   </div>
                 ))}
+              </div>
+              <div className="h-[1px] w-full bg-outline-variant/10 px-2"/>
+              
+              <div className="flex items-center justify-between px-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" checked={applyDiscount} onChange={() => setApplyDiscount(!applyDiscount)} className="w-4 h-4 rounded text-primary focus:ring-primary border-outline-variant/30 accent-primary" />
+                  <span className="font-label text-xs uppercase tracking-wider text-primary font-bold">Aplicar 20% de Desconto</span>
+                </label>
+                {applyDiscount && (
+                  <span className="bg-error/20 text-error px-2.5 py-1 rounded-lg text-[9px] font-label font-bold uppercase tracking-wider">
+                    -20% ativo
+                  </span>
+                )}
               </div>
               
               <div className="h-[1px] w-full bg-outline-variant/10 px-2"/>
