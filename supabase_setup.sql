@@ -12,29 +12,31 @@ CREATE TABLE IF NOT EXISTS public.products (
   "createdAt" timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 2. Criar a tabela de Vendas
+-- 2. Criar a tabela de Eventos (Agenda)
+CREATE TABLE IF NOT EXISTS public.events (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  title text NOT NULL,
+  observation text,
+  date timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 3. Criar a tabela de Vendas
 CREATE TABLE IF NOT EXISTS public.sales (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   date timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
   items jsonb NOT NULL,
   total numeric NOT NULL DEFAULT 0,
   profit numeric NOT NULL DEFAULT 0,
-  note text
+  note text,
+  "isGatcha" boolean DEFAULT false,
+  event_id uuid REFERENCES public.events(id) ON DELETE SET NULL
 );
 
--- 3. Criar a tabela de Despesas (Custos)
+-- 4. Criar a tabela de Despesas (Custos)
 CREATE TABLE IF NOT EXISTS public.expenses (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   description text NOT NULL,
   amount numeric NOT NULL DEFAULT 0,
-  date timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
--- 4. Criar a tabela de Eventos (Agenda)
-CREATE TABLE IF NOT EXISTS public.events (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  title text NOT NULL,
-  observation text,
   date timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -73,7 +75,8 @@ CREATE TABLE IF NOT EXISTS public.lootbox_runs (
   total_uses integer DEFAULT 1,
   used_count integer DEFAULT 0,
   created_at timestamp with time zone DEFAULT now(),
-  opened_at timestamp with time zone
+  opened_at timestamp with time zone,
+  prize_id uuid REFERENCES public.lootbox_prizes(id) ON DELETE SET NULL
 );
 
 ALTER TABLE public.lootbox_prizes ENABLE ROW LEVEL SECURITY;
